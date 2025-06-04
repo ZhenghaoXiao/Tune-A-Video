@@ -127,7 +127,6 @@ class ResnetBlock3D(nn.Module):
     ):
         super().__init__()
         self.pre_norm = pre_norm
-        self.pre_norm = True
         self.in_channels = in_channels
         out_channels = in_channels if out_channels is None else out_channels
         self.out_channels = out_channels
@@ -174,8 +173,12 @@ class ResnetBlock3D(nn.Module):
     def forward(self, input_tensor, temb):
         hidden_states = input_tensor
 
-        hidden_states = self.norm1(hidden_states)
-        hidden_states = self.nonlinearity(hidden_states)
+        if self.pre_norm:
+            hidden_states = self.norm1(hidden_states)
+            hidden_states = self.nonlinearity(hidden_states)
+        else:
+            hidden_states = self.nonlinearity(hidden_states)
+            hidden_states = self.norm1(hidden_states)
 
         hidden_states = self.conv1(hidden_states)
 
@@ -185,11 +188,15 @@ class ResnetBlock3D(nn.Module):
         if temb is not None and self.time_embedding_norm == "default":
             hidden_states = hidden_states + temb
 
-        hidden_states = self.norm2(hidden_states)
+        if not self.pre_norm:
+            hidden_states = self.norm2(hidden_states)
 
         if temb is not None and self.time_embedding_norm == "scale_shift":
             scale, shift = torch.chunk(temb, 2, dim=1)
             hidden_states = hidden_states * (1 + scale) + shift
+
+        if self.pre_norm:
+            hidden_states = self.norm2(hidden_states)
 
         hidden_states = self.nonlinearity(hidden_states)
 
