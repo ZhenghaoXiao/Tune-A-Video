@@ -127,7 +127,6 @@ class ResnetBlock3D(nn.Module):
     ):
         super().__init__()
         self.pre_norm = pre_norm
-        self.pre_norm = True
         self.in_channels = in_channels
         out_channels = in_channels if out_channels is None else out_channels
         self.out_channels = out_channels
@@ -165,27 +164,35 @@ class ResnetBlock3D(nn.Module):
         elif non_linearity == "silu":
             self.nonlinearity = nn.SiLU()
 
-        self.use_in_shortcut = self.in_channels != self.out_channels if use_in_shortcut is None else use_in_shortcut
+        self.use_in_shortcut = (
+            self.in_channels != self.out_channels if use_in_shortcut is None else use_in_shortcut
+        )
 
         self.conv_shortcut = None
-        if self.use_in_shortcut:
-            self.conv_shortcut = InflatedConv3d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
+        if self.use_in_shortcut or self.use_conv_shortcut:
+            self.conv_shortcut = InflatedConv3d(
+                in_channels, out_channels, kernel_size=1, stride=1, padding=0
+            )
 
     def forward(self, input_tensor, temb):
         hidden_states = input_tensor
 
-        hidden_states = self.norm1(hidden_states)
-        hidden_states = self.nonlinearity(hidden_states)
+        if self.pre_norm:
+            hidden_states = self.norm1(hidden_states)
+            hidden_states = self.nonlinearity(hidden_states)
+        else:
+            hidden_states = self.nonlinearity(hidden_states)
+            hidden_states = self.norm1(hidden_states)
 
         hidden_states = self.conv1(hidden_states)
 
         if temb is not None:
             temb = self.time_emb_proj(self.nonlinearity(temb))[:, :, None, None, None]
 
+        hidden_states = self.norm2(hidden_states)
+
         if temb is not None and self.time_embedding_norm == "default":
             hidden_states = hidden_states + temb
-
-        hidden_states = self.norm2(hidden_states)
 
         if temb is not None and self.time_embedding_norm == "scale_shift":
             scale, shift = torch.chunk(temb, 2, dim=1)
