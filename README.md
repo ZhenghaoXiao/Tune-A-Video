@@ -43,6 +43,12 @@ This repository is the official implementation of [Tune-A-Video](https://arxiv.o
 ```shell
 pip install -r requirements.txt
 ```
+If you encounter `ModuleNotFoundError: No module named 'triton.ops'` when training, make sure
+to install the [Triton](https://github.com/openai/triton) package (required by
+`bitsandbytes`):
+```shell
+pip install triton==2.1.0
+```
 
 Installing [xformers](https://github.com/facebookresearch/xformers) is highly recommended for more efficiency and speed on GPUs. 
 To enable xformers, set `enable_xformers_memory_efficient_attention=True` (default).
